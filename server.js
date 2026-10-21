@@ -2,7 +2,6 @@ const express = require('express');
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 
-// Cloudflare ബൈപാസ് സുഗമമാക്കാൻ Stealth പ്ലഗിൻ ചേർക്കുന്നു
 puppeteer.use(StealthPlugin());
 
 const app = express();
@@ -12,9 +11,7 @@ async function fetchFromNewey(ytUrl) {
     let browser = null;
     try {
         browser = await puppeteer.launch({
-            headless: true,
-            pipe: true, // WebSocket ടൈംഔട്ട് തടയാൻ
-            dumpio: true, // ലോഗുകൾ Koyeb കൺസോളിൽ കാണാൻ
+            headless: 'new',
             executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium',
             args: [
                 '--no-sandbox',
@@ -23,16 +20,14 @@ async function fetchFromNewey(ytUrl) {
                 '--disable-gpu',
                 '--no-first-run',
                 '--no-zygote',
-                '--single-process',
                 '--disable-extensions',
-                '--disable-software-rasterizer',
-                '--disable-accelerated-2d-canvas'
+                '--disable-software-rasterizer'
             ]
         });
 
         const page = await browser.newPage();
 
-        // റിയൽ ബ്രൗസർ User-Agent നൽകുന്നു
+        // ബ്രൗസർ യൂസർ ഏജന്റ്
         await page.setUserAgent(
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         );
@@ -40,7 +35,7 @@ async function fetchFromNewey(ytUrl) {
         const targetUrl = 'https://newey.in/utility/video-downloader';
         await page.goto(targetUrl, { waitUntil: 'networkidle2', timeout: 60000 });
 
-        // Cloudflare Turnstile response ടോക്കൺ ലഭിക്കാൻ കാത്തിരിക്കുന്നു (പരമാവധി 20 സെക്കൻഡ്)
+        // Turnstile Token വെരിഫിക്കേഷൻ കാത്തിരിക്കുന്നു (പരമാവധി 20 സെക്കൻഡ്)
         let token = null;
         for (let i = 0; i < 20; i++) {
             token = await page.evaluate(() => {
@@ -52,12 +47,12 @@ async function fetchFromNewey(ytUrl) {
         }
 
         if (!token) {
-            throw new Error("Turnstile bypass token not generated (Timeout)");
+            throw new Error("Turnstile token bypass failed (Timeout)");
         }
 
         const apiUrl = `https://newey.in/utility/video-downloader?action=info&url=${encodeURIComponent(ytUrl)}&cf-turnstile-response=${encodeURIComponent(token)}`;
 
-        // അതേ പേജ് സെഷനിൽ വെച്ച് API റിക്വസ്റ്റ് അയക്കുന്നു
+        // സെഷൻ വഴി API കോൾ ചെയ്യുന്നു
         const data = await page.evaluate(async (url) => {
             const res = await fetch(url, {
                 headers: { 'Accept': 'application/json' }
@@ -65,7 +60,7 @@ async function fetchFromNewey(ytUrl) {
             return await res.json();
         }, apiUrl);
 
-        // ഡൗൺലോഡ് ലിങ്കുകൾ പൂർണ്ണമായ URL ആക്കി മാറ്റുന്നു
+        // ഫുൾ ലിങ്ക് ജനറേറ്റ് ചെയ്യുന്നു
         if (data && data.formats) {
             data.formats = data.formats.map(fmt => ({
                 ...fmt,
@@ -103,7 +98,7 @@ app.get('/api/download', async (req, res) => {
     }
 });
 
-// Health check route
+// Health check
 app.get('/', (req, res) => {
     res.send("API is running smoothly!");
 });
