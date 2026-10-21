@@ -1,8 +1,9 @@
 FROM node:20-slim
 
-# Chromium നും Puppeteer-നും ആവശ്യമായ എല്ലാ സിസ്റ്റം ലൈബ്രറികളും ഇൻസ്റ്റാൾ ചെയ്യുന്നു
+# Chromium ഒപ്പം dumb-init ഇൻസ്റ്റാൾ ചെയ്യുന്നു
 RUN apt-get update && apt-get install -y \
     chromium \
+    dumb-init \
     fonts-liberation \
     libasound2 \
     libatk-bridge2.0-0 \
@@ -38,4 +39,6 @@ COPY . .
 
 EXPOSE 8000
 
+# dumb-init വഴി പ്രോസസ്സ് റൺ ചെയ്യുന്നു
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 CMD ["node", "server.js"]
