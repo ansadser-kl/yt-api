@@ -2,7 +2,7 @@ const express = require('express');
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 
-// Cloudflare ബൈപാസ് ചെയ്യാൻ Stealth പ്ലഗിൻ ആക്റ്റീവാക്കുന്നു
+// Cloudflare ബൈപാസ് സുഗമമാക്കാൻ Stealth പ്ലഗിൻ ചേർക്കുന്നു
 puppeteer.use(StealthPlugin());
 
 const app = express();
@@ -13,6 +13,8 @@ async function fetchFromNewey(ytUrl) {
     try {
         browser = await puppeteer.launch({
             headless: true,
+            pipe: true, // WebSocket ടൈംഔട്ട് തടയാൻ
+            dumpio: true, // ലോഗുകൾ Koyeb കൺസോളിൽ കാണാൻ
             executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium',
             args: [
                 '--no-sandbox',
@@ -21,14 +23,16 @@ async function fetchFromNewey(ytUrl) {
                 '--disable-gpu',
                 '--no-first-run',
                 '--no-zygote',
+                '--single-process',
                 '--disable-extensions',
-                '--disable-features=AudioServiceOutOfProcess,IsolateOrigins,site-per-process'
+                '--disable-software-rasterizer',
+                '--disable-accelerated-2d-canvas'
             ]
         });
 
         const page = await browser.newPage();
-        
-        // റിയൽ ബ്രൗസർ User-Agent സെറ്റ് ചെയ്യുന്നു
+
+        // റിയൽ ബ്രൗസർ User-Agent നൽകുന്നു
         await page.setUserAgent(
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         );
@@ -61,7 +65,7 @@ async function fetchFromNewey(ytUrl) {
             return await res.json();
         }, apiUrl);
 
-        // ഡൗൺലോഡ് ലിങ്കുകൾ പൂർണ്ണമായ URL ആക്കി നൽകുന്നു
+        // ഡൗൺലോഡ് ലിങ്കുകൾ പൂർണ്ണമായ URL ആക്കി മാറ്റുന്നു
         if (data && data.formats) {
             data.formats = data.formats.map(fmt => ({
                 ...fmt,
@@ -77,7 +81,7 @@ async function fetchFromNewey(ytUrl) {
     }
 }
 
-// API Route
+// API എൻഡ്പോയിന്റ്
 app.get('/api/download', async (req, res) => {
     const { url } = req.query;
 
